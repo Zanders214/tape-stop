@@ -81,3 +81,11 @@ packages are not needed.)
 `.github/workflows/build.yml` builds Windows VST3, macOS VST3 + AU, and Linux
 VST3 on every push, validates each with **pluginval**, and uploads the binaries
 as downloadable artifacts — so you can grab a macOS build without owning a Mac.
+
+`.github/workflows/sonarqube.yml` runs **SonarQube Cloud** static analysis over
+the C++ in `Source/` and `Tests/` on pushes to `dev` and on pull requests. C/C++
+can't use SonarQube's Automatic Analysis, so the job builds with a CMake
+compilation database (`CMAKE_EXPORT_COMPILE_COMMANDS`) and feeds that to the
+scanner. The project key and organization live in `sonar-project.properties`; the
+`SONAR_TOKEN` secret authenticates the upload. With `sonar.qualitygate.wait=true`
+set, a red Quality Gate fails the check so it can gate merges.
