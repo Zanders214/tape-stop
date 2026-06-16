@@ -33,7 +33,7 @@ jobs:
             libasound2-dev libfreetype-dev libfontconfig1-dev \
             libx11-dev libxcomposite-dev libxcursor-dev libxext-dev \
             libxinerama-dev libxrandr-dev libxrender-dev \
-            libglu1-mesa-dev mesa-common-dev ninja-build
+            libglu1-mesa-dev mesa-common-dev ninja-build xvfb
 
       # Cache the FetchContent JUCE clone to speed up subsequent builds.
       - name: Cache JUCE
@@ -54,6 +54,9 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel
 
+      - name: Run unit tests
+        run: ctest --test-dir build --build-config Release --output-on-failure
+
       - name: Run pluginval
         shell: bash
         run: |
@@ -65,7 +68,9 @@ jobs:
             Linux)
               curl -L -o pluginval.zip https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_Linux.zip
               unzip -o pluginval.zip
-              ./pluginval --strictness-level 5 --validate "$VST3"
+              # The Linux runner is headless; run under a virtual display so the
+              # editor-related pluginval tests can open a window.
+              xvfb-run -a ./pluginval --strictness-level 5 --validate "$VST3"
               ;;
             macOS)
               curl -L -o pluginval.zip https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_macOS.zip

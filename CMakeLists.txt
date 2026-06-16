@@ -64,3 +64,27 @@ target_link_libraries(TapeStop
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
+
+# ---------------------------------------------------------------------------
+# Unit tests for the DSP core (TapeStopEngine). Headless and framework-free,
+# so they run on every platform without a display. Run with: ctest --test-dir build
+# ---------------------------------------------------------------------------
+option(TAPESTOP_BUILD_TESTS "Build TapeStopEngine unit tests" ON)
+
+if(TAPESTOP_BUILD_TESTS)
+    enable_testing()
+
+    add_executable(TapeStopTests Tests/TapeStopEngineTests.cpp)
+    target_include_directories(TapeStopTests PRIVATE Source)
+    target_compile_definitions(TapeStopTests PRIVATE
+        JUCE_STANDALONE_APPLICATION=1
+        JUCE_USE_CURL=0
+        JUCE_WEB_BROWSER=0)
+    target_link_libraries(TapeStopTests
+        PRIVATE
+            juce::juce_audio_basics
+            juce::juce_recommended_config_flags
+            juce::juce_recommended_warning_flags)
+
+    add_test(NAME TapeStopEngine COMMAND TapeStopTests)
+endif()
