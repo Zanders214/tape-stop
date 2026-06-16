@@ -86,6 +86,13 @@ as downloadable artifacts — so you can grab a macOS build without owning a Mac
 the C++ in `Source/` and `Tests/` on pushes to `dev` and on pull requests. C/C++
 can't use SonarQube's Automatic Analysis, so the job builds with a CMake
 compilation database (`CMAKE_EXPORT_COMPILE_COMMANDS`) and feeds that to the
-scanner. The project key and organization live in `sonar-project.properties`; the
-`SONAR_TOKEN` secret authenticates the upload. With `sonar.qualitygate.wait=true`
-set, a red Quality Gate fails the check so it can gate merges.
+scanner. It also runs the unit tests under coverage instrumentation
+(`-DTAPESTOP_ENABLE_COVERAGE=ON`) and converts the result with `gcovr --sonarqube`,
+so SonarQube reports real line coverage for the DSP core. The project key and
+organization live in `sonar-project.properties`; the
+`SONAR_TOKEN` secret authenticates the upload. Following SonarQube's "Clean as
+You Code" model, the Quality Gate is enforced on **pull requests**
+(`sonar.qualitygate.wait=true`, so a red gate fails the check and can block the
+merge), while pushes to `dev` publish analysis without failing CI — the first
+branch analysis scores the whole existing codebase as "new code", which would
+otherwise red-flag already-merged code.
