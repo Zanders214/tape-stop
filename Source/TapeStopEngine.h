@@ -24,10 +24,26 @@
     `startTime`. The ramp itself is the smoother, so `speed` never jumps -> no
     clicks. A short gain fade in the last few percent guarantees a clean,
     DC-free silence at full stop.
+
+    Returning to live: while slowing/stopped the read pointer lags the write
+    pointer; because `speed` is capped at 1, that lag would otherwise be
+    permanent (and accumulate across gestures). On release the engine resyncs the
+    reader back to the write head so the effect returns to transparent, zero-
+    latency passthrough. Two behaviours are selectable via `ReturnMode`:
+
+        Snap   -> rejoin the live signal instantly (jump to the write head while
+                  output is silent, i.e. fully stopped; click-free). If released
+                  mid-fade while still audible, falls back to a quick catch-up.
+        SpinUp -> turntable style: the reader runs faster than the writer
+                  (capped at kCatchUpRate) until it reaches the write head, so you
+                  hear the tape accelerate through the buffered audio and lock in.
 */
 class TapeStopEngine
 {
 public:
+    /** How the tape rejoins the live signal when Stop is released. */
+    enum class ReturnMode { SpinUp, Snap };
+
     TapeStopEngine() = default;
 
     /** Allocates all buffers. Must be called (off the audio thread) before
@@ -81,6 +97,9 @@ public:
     /** 0 = linear slowdown, 1 = heavy exponential (fast drop, long linger). */
     void setCurve (float curve01) noexcept { curve = juce::jlimit (0.0f, 1.0f, curve01); }
 
+    /** Selects how the tape rejoins the live signal on release. */
+    void setReturnMode (ReturnMode m) noexcept { returnMode = m; }
+
     /** Processes a block in place. One output sample per input sample. */
     void process (juce::AudioBuffer<float>& buffer) noexcept
     {
@@ -113,15 +132,48 @@ public:
                 buffer.setSample (ch, s, v * gain);
             }
 
-            // 3) Advance writer (by 1) and reader (by speed).
+            // 3) Advance writer (by 1) and reader. While Stop is released the
+            //    reader must close the lag it built up so the effect returns to
+            //    transparent, zero-latency passthrough (otherwise the latency is
+            //    permanent and accumulates across gestures).
             ++writeIndex;
-            readPos += speed;
+
+            double readInc = speed;   // curve/ramp-driven base rate, in [0, 1]
+
+            if (! engaged)
+            {
+                const double gap = (double) writeIndex - readPos; // samples behind live
+
+                if (returnMode == ReturnMode::Snap && gain <= kSnapSilenceGain)
+                {
+                    // Fully (or near) stopped: output is silent, so we can jump
+                    // straight to the live edge and resume at full speed with no
+                    // click. The Start Time ramp is intentionally bypassed here.
+                    readPos = (double) writeIndex;
+                    phase   = 0.0;
+                    speed   = 1.0;
+                    readInc = 0.0;
+                }
+                else if (gap > 0.0)
+                {
+                    // SpinUp (always) or Snap-released-while-audible: run faster
+                    // than the writer, capped, and never overshoot the live edge.
+                    readInc = juce::jmin (gap, juce::jmax (readInc, kCatchUpRate));
+                }
+            }
+
+            readPos += readInc;
 
             // Keep the reader within the ring: never let it fall further behind
             // than maxLag (bounds the buffer when Stop is held a long time).
             const double minReadPos = (double) (writeIndex - maxLag);
             if (readPos < minReadPos)
                 readPos = minReadPos;
+
+            // Once spun back up and caught up, hard-lock to unity so we sit
+            // exactly on the write head (no fractional drift, bit-transparent).
+            if (! engaged && phase <= 0.0 && (double) writeIndex - readPos <= 1.0)
+                readPos = (double) writeIndex;
 
             // 4) Advance the control ramp, then map phase -> speed via the curve.
             advanceRamp();
@@ -148,8 +200,10 @@ private:
         speed = std::pow (1.0 - phase, exponent);
     }
 
-    static constexpr double kCurveExp  = 4.0;   // curve=1 -> exponent 5
-    static constexpr double kFadeStart = 0.05;  // fade to silence below 5% speed
+    static constexpr double kCurveExp     = 4.0;     // curve=1 -> exponent 5
+    static constexpr double kFadeStart    = 0.05;    // fade to silence below 5% speed
+    static constexpr double kCatchUpRate  = 2.0;     // max read rate while returning to live
+    static constexpr float  kSnapSilenceGain = 1.0e-3f; // "silent enough" to jump in Snap mode
 
     double    sr         = 44100.0;
     long long bufferSize = 0;
@@ -163,8 +217,9 @@ private:
     double    phase       = 0.0;  // 0 = running, 1 = fully stopped
     double    speed       = 1.0;  // playback rate (read increment per sample)
 
-    bool   engaged = false;
-    float  stopMs  = 500.0f;
-    float  startMs = 300.0f;
-    float  curve   = 0.5f;
+    bool       engaged    = false;
+    ReturnMode returnMode = ReturnMode::Snap;
+    float      stopMs     = 500.0f;
+    float      startMs    = 300.0f;
+    float      curve      = 0.5f;
 };

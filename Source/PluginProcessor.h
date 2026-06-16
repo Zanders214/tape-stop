@@ -50,10 +50,11 @@ private:
 
     TapeStopEngine engine;
 
-    std::atomic<float>* stopParam      = nullptr;
-    std::atomic<float>* stopTimeParam  = nullptr;
-    std::atomic<float>* startTimeParam = nullptr;
-    std::atomic<float>* curveParam     = nullptr;
+    std::atomic<float>* stopParam       = nullptr;
+    std::atomic<float>* stopTimeParam   = nullptr;
+    std::atomic<float>* startTimeParam  = nullptr;
+    std::atomic<float>* curveParam      = nullptr;
+    std::atomic<float>* returnModeParam = nullptr;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TapeStopAudioProcessor)
 };

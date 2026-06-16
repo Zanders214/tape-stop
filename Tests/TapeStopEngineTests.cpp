@@ -51,6 +51,36 @@ int countZeroCrossings (const float* d, int start, int len)
     return crossings;
 }
 
+// Pushes a single unit impulse (at sample 0) through the engine and returns the
+// output index where it lands -- i.e. the engine's current round-trip latency in
+// samples. Returns -1 if the impulse is not found. Assumes the engine is in a
+// settled, not-engaged state (so it should be transparent -> delay ~0).
+int measureImpulseDelay (TapeStopEngine& engine, int probeLen)
+{
+    juce::AudioBuffer<float> buf (1, probeLen);
+    buf.clear();
+    buf.setSample (0, 0, 1.0f);
+    engine.process (buf);
+
+    int   peakIdx = -1;
+    float peak    = 0.0f;
+    for (int i = 0; i < probeLen; ++i)
+    {
+        const float a = std::abs (buf.getSample (0, i));
+        if (a > peak) { peak = a; peakIdx = i; }
+    }
+    return (peak > 0.5f) ? peakIdx : -1;
+}
+
+// Runs `seconds` of a steady tone through the engine, discarding the output.
+void runTone (TapeStopEngine& engine, double sr, double seconds, double freq = 220.0)
+{
+    const int n = (int) (sr * seconds);
+    if (n <= 0) return;
+    auto buf = makeSine (sr, freq, n);
+    engine.process (buf);
+}
+
 // ---- Test 1: with Stop never engaged, the effect is bit-transparent. -------
 void testUnityPassthrough()
 {
@@ -179,6 +209,73 @@ void testPitchDrops()
            "fewer zero crossings while slowing (slow " + std::to_string (slowCrossings)
                + " < unity " + std::to_string (unityCrossings) + ")");
 }
+
+// ---- Test 5: Snap mode returns to live (zero latency) after a stop. --------
+// Regression for the "notes go silent then replay seconds later" bug: the read
+// head used to stay permanently behind the write head after a stop. On current
+// (buggy) code this delay would be ~ the hold time; the fix drives it back to 0.
+void testReturnsToLiveSnap()
+{
+    std::printf ("Returns to live (Snap):\n");
+    constexpr double sr = 48000.0;
+
+    TapeStopEngine engine;
+    engine.prepare (sr, 1, 5.0);
+    engine.setTimes (200.0f, 200.0f);
+    engine.setReturnMode (TapeStopEngine::ReturnMode::Snap);
+
+    engine.setStopEngaged (false); runTone (engine, sr, 0.1); // running
+    engine.setStopEngaged (true);  runTone (engine, sr, 1.0); // wind down + hold 1 s
+    engine.setStopEngaged (false); runTone (engine, sr, 0.3); // released -> snap to live
+
+    const int delay = measureImpulseDelay (engine, (int) (sr * 3.0));
+    check (delay >= 0 && delay <= 8,
+           "Snap: latency returns to ~0 after a 1 s stop (delay " + std::to_string (delay) + ")");
+}
+
+// ---- Test 6: Spin Up mode catches back up to live after a stop. ------------
+void testReturnsToLiveSpinUp()
+{
+    std::printf ("Returns to live (Spin Up):\n");
+    constexpr double sr = 48000.0;
+
+    TapeStopEngine engine;
+    engine.prepare (sr, 1, 5.0);
+    engine.setTimes (200.0f, 200.0f);
+    engine.setReturnMode (TapeStopEngine::ReturnMode::SpinUp);
+
+    engine.setStopEngaged (false); runTone (engine, sr, 0.1); // running
+    engine.setStopEngaged (true);  runTone (engine, sr, 1.0); // wind down + hold 1 s
+    engine.setStopEngaged (false); runTone (engine, sr, 3.0); // released -> catch up (capped)
+
+    const int delay = measureImpulseDelay (engine, (int) (sr * 3.0));
+    check (delay >= 0 && delay <= 8,
+           "Spin Up: latency returns to ~0 after catch-up (delay " + std::to_string (delay) + ")");
+}
+
+// ---- Test 7: latency does not accumulate across repeated stop/start cycles. -
+void testNoLatencyAccumulation()
+{
+    std::printf ("No latency accumulation:\n");
+    constexpr double sr = 48000.0;
+
+    TapeStopEngine engine;
+    engine.prepare (sr, 1, 5.0);
+    engine.setTimes (150.0f, 150.0f);
+    engine.setReturnMode (TapeStopEngine::ReturnMode::Snap);
+
+    int worst = 0;
+    for (int k = 0; k < 5; ++k)
+    {
+        engine.setStopEngaged (true);  runTone (engine, sr, 0.5);
+        engine.setStopEngaged (false); runTone (engine, sr, 0.3);
+        const int delay = measureImpulseDelay (engine, (int) (sr * 2.0));
+        worst = juce::jmax (worst, delay);
+    }
+
+    check (worst >= 0 && worst <= 8,
+           "delay stays ~0 across 5 cycles (worst " + std::to_string (worst) + ")");
+}
 } // namespace
 
 int main()
@@ -189,6 +286,9 @@ int main()
     testStopReachesSilence();
     testFiniteAndBounded();
     testPitchDrops();
+    testReturnsToLiveSnap();
+    testReturnsToLiveSpinUp();
+    testNoLatencyAccumulation();
 
     std::printf ("=========================\n%s\n",
                  failures == 0 ? "ALL TESTS PASSED" : "TESTS FAILED");
