@@ -2,9 +2,18 @@ name: Build
 
 on:
   push:
-    branches: ["**"]
+    # Only build the integration branches on push. Feature branches are covered
+    # by the pull_request trigger below, which avoids both throwaway WIP builds
+    # and the duplicate push+PR build of the same commit.
+    branches: [dev, main]
   pull_request:
   workflow_dispatch:
+
+# A newer commit on the same branch/PR cancels an in-flight build for that ref,
+# so two builds never race for the same thing.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
