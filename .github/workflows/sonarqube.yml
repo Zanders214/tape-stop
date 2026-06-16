@@ -50,6 +50,12 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel
 
+      # On pull requests, wait for the Quality Gate and fail the check if it is
+      # red — this enforces quality on new code before it merges. On pushes to
+      # dev we still publish the analysis but do NOT gate: the first branch
+      # analysis scores the entire existing codebase as "new code", so gating
+      # there would fail CI on already-merged code (e.g. 0% coverage on the GUI
+      # classes that aren't unit-tested).
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v8.1.0
         env:
@@ -57,3 +63,4 @@ jobs:
         with:
           args: >
             --define sonar.cfamily.compile-commands=build/compile_commands.json
+            ${{ github.event_name == 'pull_request' && '--define sonar.qualitygate.wait=true' || '' }}
