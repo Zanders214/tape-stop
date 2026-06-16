@@ -70,6 +70,7 @@ target_link_libraries(TapeStop
 # so they run on every platform without a display. Run with: ctest --test-dir build
 # ---------------------------------------------------------------------------
 option(TAPESTOP_BUILD_TESTS "Build TapeStopEngine unit tests" ON)
+option(TAPESTOP_ENABLE_COVERAGE "Instrument the unit tests for gcov/llvm coverage" OFF)
 
 if(TAPESTOP_BUILD_TESTS)
     enable_testing()
@@ -85,6 +86,13 @@ if(TAPESTOP_BUILD_TESTS)
             juce::juce_audio_basics
             juce::juce_recommended_config_flags
             juce::juce_recommended_warning_flags)
+
+    # Coverage instrumentation for the DSP core, fed to SonarQube from CI. Only
+    # the test target is instrumented, and -O0 keeps gcov's line mapping honest.
+    if(TAPESTOP_ENABLE_COVERAGE)
+        target_compile_options(TapeStopTests PRIVATE --coverage -O0 -g)
+        target_link_options(TapeStopTests PRIVATE --coverage)
+    endif()
 
     add_test(NAME TapeStopEngine COMMAND TapeStopTests)
 endif()

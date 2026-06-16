@@ -25,7 +25,7 @@ jobs:
           fetch-depth: 0
 
       # Same build dependencies as build.yml — JUCE's GUI/audio modules need
-      # these dev headers to compile.
+      # these dev headers to compile. gcovr turns gcov data into a report.
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
@@ -33,7 +33,7 @@ jobs:
             libasound2-dev libfreetype-dev libfontconfig1-dev \
             libx11-dev libxcomposite-dev libxcursor-dev libxext-dev \
             libxinerama-dev libxrandr-dev libxrender-dev \
-            libglu1-mesa-dev mesa-common-dev
+            libglu1-mesa-dev mesa-common-dev gcovr
 
       # Reuse build.yml's JUCE clone cache to avoid re-fetching the framework.
       - name: Cache JUCE
@@ -43,12 +43,22 @@ jobs:
           key: juce-${{ runner.os }}-8.0.4
 
       # Generate the compilation database and build, so JUCE's generated headers
-      # exist before the scanner parses our sources.
+      # exist before the scanner parses our sources. Coverage instruments the
+      # unit-test target only (see CMakeLists.txt).
       - name: Configure
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DTAPESTOP_ENABLE_COVERAGE=ON
 
       - name: Build
         run: cmake --build build --config Release --parallel
+
+      # Run the DSP unit tests; this also emits the gcov data for coverage.
+      - name: Run tests
+        run: ctest --test-dir build --build-config Release --output-on-failure
+
+      # Convert gcov data to SonarQube's generic coverage format, scoped to our
+      # source (Source/), so SonarQube reports real coverage for the DSP core.
+      - name: Generate coverage report
+        run: gcovr --root "$PWD" --filter 'Source/' --sonarqube --output coverage.xml build
 
       # On pull requests, wait for the Quality Gate and fail the check if it is
       # red — this enforces quality on new code before it merges. On pushes to
