@@ -3,10 +3,11 @@
 
 namespace ParamID
 {
-    static constexpr const char* stop      = "stop";
-    static constexpr const char* stopTime  = "stopTime";
-    static constexpr const char* startTime = "startTime";
-    static constexpr const char* curve     = "curve";
+    static constexpr const char* stop       = "stop";
+    static constexpr const char* stopTime   = "stopTime";
+    static constexpr const char* startTime  = "startTime";
+    static constexpr const char* curve      = "curve";
+    static constexpr const char* returnMode = "returnMode";
 }
 
 TapeStopAudioProcessor::TapeStopAudioProcessor()
@@ -15,10 +16,11 @@ TapeStopAudioProcessor::TapeStopAudioProcessor()
           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "PARAMETERS", createParameterLayout())
 {
-    stopParam      = apvts.getRawParameterValue (ParamID::stop);
-    stopTimeParam  = apvts.getRawParameterValue (ParamID::stopTime);
-    startTimeParam = apvts.getRawParameterValue (ParamID::startTime);
-    curveParam     = apvts.getRawParameterValue (ParamID::curve);
+    stopParam       = apvts.getRawParameterValue (ParamID::stop);
+    stopTimeParam   = apvts.getRawParameterValue (ParamID::stopTime);
+    startTimeParam  = apvts.getRawParameterValue (ParamID::startTime);
+    curveParam      = apvts.getRawParameterValue (ParamID::curve);
+    returnModeParam = apvts.getRawParameterValue (ParamID::returnMode);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout
@@ -44,6 +46,12 @@ TapeStopAudioProcessor::createParameterLayout()
     layout.add (std::make_unique<AudioParameterFloat> (
         ParameterID { ParamID::curve, 1 }, "Curve",
         NormalisableRange<float> (0.0f, 1.0f, 0.001f), 0.5f));
+
+    // How the tape rejoins the live signal when Stop is released.
+    // Index 0 = Spin Up (turntable catch-up), 1 = Snap (instant rejoin, default).
+    layout.add (std::make_unique<AudioParameterChoice> (
+        ParameterID { ParamID::returnMode, 1 }, "Return",
+        StringArray { "Spin Up", "Snap" }, 1));
 
     return layout;
 }
@@ -81,6 +89,9 @@ void TapeStopAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     engine.setStopEngaged (stopParam->load() >= 0.5f);
     engine.setTimes (stopTimeParam->load(), startTimeParam->load());
     engine.setCurve (curveParam->load());
+    engine.setReturnMode (returnModeParam->load() >= 0.5f
+                              ? TapeStopEngine::ReturnMode::Snap
+                              : TapeStopEngine::ReturnMode::SpinUp);
 
     engine.process (buffer);
 }

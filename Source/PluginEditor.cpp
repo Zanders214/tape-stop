@@ -11,12 +11,23 @@ TapeStopAudioProcessorEditor::TapeStopAudioProcessorEditor (TapeStopAudioProcess
     setupKnob (startTimeKnob, startTimeLabel, "Start Time");
     setupKnob (curveKnob,     curveLabel,     "Curve");
 
-    stopAttachment      = std::make_unique<APVTS::ButtonAttachment> (processorRef.apvts, "stop",      stopButton);
-    stopTimeAttachment  = std::make_unique<APVTS::SliderAttachment> (processorRef.apvts, "stopTime",  stopTimeKnob);
-    startTimeAttachment = std::make_unique<APVTS::SliderAttachment> (processorRef.apvts, "startTime", startTimeKnob);
-    curveAttachment     = std::make_unique<APVTS::SliderAttachment> (processorRef.apvts, "curve",     curveKnob);
+    // Return-mode selector. Item IDs (1, 2) map to the "Return" choice indices
+    // (0 = Spin Up, 1 = Snap); the ComboBoxAttachment keeps them in sync.
+    returnBox.addItem ("Spin Up", 1);
+    returnBox.addItem ("Snap",    2);
+    addAndMakeVisible (returnBox);
 
-    setSize (420, 320);
+    returnLabel.setText ("Return", juce::dontSendNotification);
+    returnLabel.setJustificationType (juce::Justification::centred);
+    addAndMakeVisible (returnLabel);
+
+    stopAttachment      = std::make_unique<APVTS::ButtonAttachment>   (processorRef.apvts, "stop",       stopButton);
+    stopTimeAttachment  = std::make_unique<APVTS::SliderAttachment>   (processorRef.apvts, "stopTime",   stopTimeKnob);
+    startTimeAttachment = std::make_unique<APVTS::SliderAttachment>   (processorRef.apvts, "startTime",  startTimeKnob);
+    curveAttachment     = std::make_unique<APVTS::SliderAttachment>   (processorRef.apvts, "curve",      curveKnob);
+    returnAttachment    = std::make_unique<APVTS::ComboBoxAttachment> (processorRef.apvts, "returnMode", returnBox);
+
+    setSize (420, 380);
 }
 
 void TapeStopAudioProcessorEditor::setupKnob (juce::Slider& slider, juce::Label& label,
@@ -50,11 +61,14 @@ void TapeStopAudioProcessorEditor::resized()
 
     area.removeFromTop (10);
 
-    // Three knobs in a row, each with its label above.
-    juce::FlexBox row;
-    row.flexDirection = juce::FlexBox::Direction::row;
-    row.justifyContent = juce::FlexBox::JustifyContent::spaceBetween;
+    // Return selector lives in a strip at the bottom; knobs fill what remains.
+    auto returnRow = area.removeFromBottom (50);
+    returnLabel.setBounds (returnRow.removeFromTop (20));
+    returnBox.setBounds (returnRow.reduced (110, 2));
 
+    area.removeFromBottom (10);
+
+    // Three knobs in a row, each with its label above.
     struct KnobPair { juce::Label& label; juce::Slider& slider; };
     KnobPair pairs[] = {
         { stopTimeLabel,  stopTimeKnob  },
