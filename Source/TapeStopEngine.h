@@ -1,0 +1,170 @@
+#pragma once
+
+#include <juce_audio_basics/juce_audio_basics.h>
+#include <vector>
+#include <cmath>
+
+/**
+    TapeStopEngine
+
+    The DSP heart of the tape-stop effect, deliberately kept free of any host /
+    plugin plumbing so it can be unit-tested or reused on its own.
+
+    Model: a variable-rate resampler. Each channel owns a ring buffer that is
+    written at a constant rate (one sample in, one sample out). A single, shared
+    read pointer advances by the current `speed` every sample:
+
+        speed == 1  -> read keeps pace with write  -> transparent / unity
+        speed  < 1  -> read falls behind write     -> slower + pitched down
+        speed -> 0  -> read pointer freezes         -> the tape has stopped
+
+    `speed` is driven by a normalized ramp `phase` in [0, 1] so the curve knob is
+    meaningful:  speed = (1 - phase) ^ (1 + curve * kCurveExp).
+    Engaging Stop ramps phase 0->1 over `stopTime`; releasing ramps it 1->0 over
+    `startTime`. The ramp itself is the smoother, so `speed` never jumps -> no
+    clicks. A short gain fade in the last few percent guarantees a clean,
+    DC-free silence at full stop.
+*/
+class TapeStopEngine
+{
+public:
+    TapeStopEngine() = default;
+
+    /** Allocates all buffers. Must be called (off the audio thread) before
+        process(). `maxStopTimeSeconds` bounds the worst-case read lag and thus
+        the ring-buffer size. */
+    void prepare (double sampleRate, int numChannels, double maxStopTimeSeconds)
+    {
+        sr = sampleRate;
+
+        // Worst-case the reader can fall behind the writer is roughly the full
+        // spin-down time (reader frozen while writer runs). Cap the lag there
+        // and size the ring to hold it, rounded up to a power of two for cheap
+        // mask-wrapping. A little headroom covers the +1 interpolation tap.
+        maxLag = (long long) std::ceil (maxStopTimeSeconds * sr) + 8;
+
+        long long n = 2;
+        while (n < maxLag + 8)
+            n <<= 1;
+        bufferSize = n;
+        mask = bufferSize - 1;
+
+        channels.assign ((size_t) juce::jmax (1, numChannels),
+                         std::vector<float> ((size_t) bufferSize, 0.0f));
+
+        reset();
+    }
+
+    /** Clears history and returns to a transparent, at-rest state. */
+    void reset()
+    {
+        for (auto& ch : channels)
+            std::fill (ch.begin(), ch.end(), 0.0f);
+
+        writeIndex = 0;
+        readPos    = 0.0;
+        phase      = 0.0;
+        speed      = 1.0;
+    }
+
+    /** The automatable Stop toggle. Engaging winds the tape down; releasing
+        winds it back up. */
+    void setStopEngaged (bool shouldStop) noexcept { engaged = shouldStop; }
+
+    /** Spin-down / spin-up durations in milliseconds. */
+    void setTimes (float stopTimeMs, float startTimeMs) noexcept
+    {
+        stopMs  = juce::jmax (1.0f, stopTimeMs);
+        startMs = juce::jmax (1.0f, startTimeMs);
+    }
+
+    /** 0 = linear slowdown, 1 = heavy exponential (fast drop, long linger). */
+    void setCurve (float curve01) noexcept { curve = juce::jlimit (0.0f, 1.0f, curve01); }
+
+    /** Processes a block in place. One output sample per input sample. */
+    void process (juce::AudioBuffer<float>& buffer) noexcept
+    {
+        const int numCh      = juce::jmin (buffer.getNumChannels(), (int) channels.size());
+        const int numSamples = buffer.getNumSamples();
+
+        for (int s = 0; s < numSamples; ++s)
+        {
+            // 1) Write the incoming sample for every channel at the same index.
+            const long long w = writeIndex & mask;
+            for (int ch = 0; ch < numCh; ++ch)
+                channels[(size_t) ch][(size_t) w] = buffer.getSample (ch, s);
+
+            // 2) Read each channel at the shared fractional position (linear interp).
+            const long long i0   = (long long) std::floor (readPos);
+            const float     frac = (float) (readPos - (double) i0);
+            const long long a0   = i0 & mask;
+            const long long a1   = (i0 + 1) & mask;
+
+            // Fade to silence over the last few percent of the ramp so a fully
+            // stopped tape lands on clean silence rather than a held DC tone.
+            const float gain = (speed >= kFadeStart)
+                                   ? 1.0f
+                                   : (float) (speed / kFadeStart);
+
+            for (int ch = 0; ch < numCh; ++ch)
+            {
+                const auto& buf = channels[(size_t) ch];
+                const float v   = buf[(size_t) a0] + frac * (buf[(size_t) a1] - buf[(size_t) a0]);
+                buffer.setSample (ch, s, v * gain);
+            }
+
+            // 3) Advance writer (by 1) and reader (by speed).
+            ++writeIndex;
+            readPos += speed;
+
+            // Keep the reader within the ring: never let it fall further behind
+            // than maxLag (bounds the buffer when Stop is held a long time).
+            const double minReadPos = (double) (writeIndex - maxLag);
+            if (readPos < minReadPos)
+                readPos = minReadPos;
+
+            // 4) Advance the control ramp, then map phase -> speed via the curve.
+            advanceRamp();
+        }
+    }
+
+private:
+    void advanceRamp() noexcept
+    {
+        const double target = engaged ? 1.0 : 0.0;
+
+        if (phase < target)
+        {
+            const double inc = 1000.0 / (stopMs * sr);   // 0 -> 1 over stopMs
+            phase = juce::jmin (target, phase + inc);
+        }
+        else if (phase > target)
+        {
+            const double inc = 1000.0 / (startMs * sr);  // 1 -> 0 over startMs
+            phase = juce::jmax (target, phase - inc);
+        }
+
+        const double exponent = 1.0 + (double) curve * kCurveExp;
+        speed = std::pow (1.0 - phase, exponent);
+    }
+
+    static constexpr double kCurveExp  = 4.0;   // curve=1 -> exponent 5
+    static constexpr double kFadeStart = 0.05;  // fade to silence below 5% speed
+
+    double    sr         = 44100.0;
+    long long bufferSize = 0;
+    long long mask       = 0;
+    long long maxLag     = 0;
+
+    std::vector<std::vector<float>> channels;
+
+    long long writeIndex = 0;     // monotonic write counter
+    double    readPos     = 0.0;  // fractional, shared across channels
+    double    phase       = 0.0;  // 0 = running, 1 = fully stopped
+    double    speed       = 1.0;  // playback rate (read increment per sample)
+
+    bool   engaged = false;
+    float  stopMs  = 500.0f;
+    float  startMs = 300.0f;
+    float  curve   = 0.5f;
+};

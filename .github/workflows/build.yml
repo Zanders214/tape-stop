@@ -1,0 +1,89 @@
+name: Build
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux
+            os: ubuntu-latest
+          - name: Windows
+            os: windows-latest
+          - name: macOS
+            os: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libasound2-dev libfreetype-dev libfontconfig1-dev \
+            libx11-dev libxcomposite-dev libxcursor-dev libxext-dev \
+            libxinerama-dev libxrandr-dev libxrender-dev \
+            libglu1-mesa-dev mesa-common-dev ninja-build
+
+      # Cache the FetchContent JUCE clone to speed up subsequent builds.
+      - name: Cache JUCE
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: juce-${{ runner.os }}-8.0.4
+
+      - name: Configure
+        shell: bash
+        run: |
+          EXTRA=""
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            EXTRA="-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64"
+          fi
+          cmake -B build -DCMAKE_BUILD_TYPE=Release $EXTRA
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Run pluginval
+        shell: bash
+        run: |
+          set -e
+          VST3=$(find build -name "Tape Stop.vst3" -print -quit)
+          echo "Validating: $VST3"
+
+          case "${{ runner.os }}" in
+            Linux)
+              curl -L -o pluginval.zip https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_Linux.zip
+              unzip -o pluginval.zip
+              ./pluginval --strictness-level 5 --validate "$VST3"
+              ;;
+            macOS)
+              curl -L -o pluginval.zip https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_macOS.zip
+              unzip -o pluginval.zip
+              ./pluginval.app/Contents/MacOS/pluginval --strictness-level 5 --validate "$VST3"
+              ;;
+            Windows)
+              curl -L -o pluginval.zip https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_Windows.zip
+              unzip -o pluginval.zip
+              ./pluginval.exe --strictness-level 5 --validate "$VST3"
+              ;;
+          esac
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: TapeStop-${{ matrix.name }}
+          path: |
+            build/TapeStop_artefacts/Release/VST3/*.vst3
+            build/TapeStop_artefacts/Release/AU/*.component
+          if-no-files-found: warn
