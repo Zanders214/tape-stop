@@ -45,9 +45,17 @@ juce_add_plugin(TapeStop
 
 juce_generate_juce_header(TapeStop)
 
+# Embed the editor's fonts (Space Grotesk + JetBrains Mono, OFL) as BinaryData.
+juce_add_binary_data(TapeStopData SOURCES
+    Fonts/SpaceGroteskRegular.ttf
+    Fonts/SpaceGroteskSemiBold.ttf
+    Fonts/SpaceGroteskBold.ttf
+    Fonts/JetBrainsMonoRegular.ttf)
+
 target_sources(TapeStop PRIVATE
     Source/PluginProcessor.cpp
-    Source/PluginEditor.cpp)
+    Source/PluginEditor.cpp
+    Source/TapeStopLookAndFeel.cpp)
 
 target_compile_definitions(TapeStop
     PUBLIC
@@ -58,6 +66,7 @@ target_compile_definitions(TapeStop
 
 target_link_libraries(TapeStop
     PRIVATE
+        TapeStopData
         juce::juce_audio_utils
         juce::juce_dsp
     PUBLIC

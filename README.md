@@ -15,6 +15,19 @@ electronic and hip-hop production, and works in Ableton Live or any VST3/AU host
 | **Stop Time**  | How long the spin-**down** takes (1–5000 ms).                     |
 | **Start Time** | How long the spin-**up** takes (1–5000 ms).                      |
 | **Curve**    | Slowdown shape: `0` = linear, `1` = heavy exponential (fast drop, long linger). |
+| **Return**   | How the tape rejoins the live signal on release: **Snap** (instant, click-free rejoin from silence) or **Spin Up** (turntable-style catch-up through the buffered audio). |
+
+## User interface
+
+The editor is the **"Neon Cassette"** panel: a dark rounded panel with a cassette
+graphic whose two hubs spin and slow with the tape, a spectrum tape-speed bar, a
+big **STOP / STOPPING** button, a live **slowdown-curve** histogram with a playhead,
+and **Stop Time / Start Time / Curve** sliders plus a subtle **Return** (Snap / Spin
+Up) toggle. Everything is drawn with native JUCE (`paint()` + a custom
+`LookAndFeel`); a 60 Hz timer reads the engine's live `speed` / `phase` to drive the
+hubs, bar, speed read-out, and playhead. The two UI fonts (Space Grotesk + JetBrains
+Mono, both OFL) are embedded as `BinaryData` — see [`Fonts/`](Fonts/). The window is
+360 × 693 and resizes proportionally.
 
 ## How it works
 

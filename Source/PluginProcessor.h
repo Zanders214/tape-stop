@@ -42,6 +42,11 @@ public:
     // Parameter tree, public so the editor can attach to it.
     juce::AudioProcessorValueTreeState apvts;
 
+    // Live engine state for the editor (read-only, thread-safe). Not parameters:
+    // these are derived DSP state, polled by the editor's animation timer.
+    float getSpeed() const noexcept { return engine.getSpeed(); }
+    float getPhase() const noexcept { return engine.getPhase(); }
+
     // The maximum spin-down time, in seconds. Also bounds the ring-buffer size.
     static constexpr double maxStopTimeSeconds = 5.0;
 

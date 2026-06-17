@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_audio_basics/juce_audio_basics.h>
+#include <atomic>
 #include <vector>
 #include <cmath>
 
@@ -81,6 +82,9 @@ public:
         readPos    = 0.0;
         phase      = 0.0;
         speed      = 1.0;
+
+        speedPublished.store (1.0f, std::memory_order_relaxed);
+        phasePublished.store (0.0f, std::memory_order_relaxed);
     }
 
     /** The automatable Stop toggle. Engaging winds the tape down; releasing
@@ -99,6 +103,15 @@ public:
 
     /** Selects how the tape rejoins the live signal on release. */
     void setReturnMode (ReturnMode m) noexcept { returnMode = m; }
+
+    /** Live playback rate in [0, 1] (1 = full speed, 0 = stopped). Published
+        once per processed block; safe to read from any thread (e.g. the editor's
+        UI timer) without locking. */
+    float getSpeed() const noexcept { return speedPublished.load (std::memory_order_relaxed); }
+
+    /** Live ramp position in [0, 1] (0 = running, 1 = fully stopped). Published
+        once per processed block; thread-safe to read from the UI. */
+    float getPhase() const noexcept { return phasePublished.load (std::memory_order_relaxed); }
 
     /** Processes a block in place. One output sample per input sample. */
     void process (juce::AudioBuffer<float>& buffer) noexcept
@@ -178,6 +191,10 @@ public:
             // 4) Advance the control ramp, then map phase -> speed via the curve.
             advanceRamp();
         }
+
+        // Publish the latest control state for the UI (read-only, lock-free).
+        speedPublished.store ((float) speed, std::memory_order_relaxed);
+        phasePublished.store ((float) phase, std::memory_order_relaxed);
     }
 
 private:
@@ -222,4 +239,9 @@ private:
     float      stopMs     = 500.0f;
     float      startMs    = 300.0f;
     float      curve      = 0.5f;
+
+    // UI-facing snapshots of speed/phase, published once per block. Atomic so the
+    // editor's message-thread timer can read them while the audio thread writes.
+    std::atomic<float> speedPublished { 1.0f };
+    std::atomic<float> phasePublished { 0.0f };
 };

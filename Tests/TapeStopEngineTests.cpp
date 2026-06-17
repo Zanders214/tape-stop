@@ -276,6 +276,33 @@ void testNoLatencyAccumulation()
     check (worst >= 0 && worst <= 8,
            "delay stays ~0 across 5 cycles (worst " + std::to_string (worst) + ")");
 }
+
+// ---- Test 8: the UI-facing getSpeed()/getPhase() track the ramp. -----------
+// The editor polls these on its timer; they must read back the live state
+// (~1/0 while running, ~0/1 once fully stopped) after a processed block.
+void testStateGetters()
+{
+    std::printf ("Speed/phase getters track the ramp:\n");
+    constexpr double sr = 48000.0;
+
+    TapeStopEngine engine;
+    engine.prepare (sr, 1, 5.0);
+    engine.setTimes (100.0f, 100.0f);
+
+    // At rest: full speed, zero phase.
+    engine.setStopEngaged (false);
+    runTone (engine, sr, 0.05);
+    check (engine.getSpeed() > 0.99f && engine.getPhase() < 0.01f,
+           "running -> speed~1, phase~0 (speed " + std::to_string (engine.getSpeed())
+               + ", phase " + std::to_string (engine.getPhase()) + ")");
+
+    // Held well past the 100 ms spin-down: stopped.
+    engine.setStopEngaged (true);
+    runTone (engine, sr, 0.5);
+    check (engine.getSpeed() < 0.01f && engine.getPhase() > 0.99f,
+           "stopped -> speed~0, phase~1 (speed " + std::to_string (engine.getSpeed())
+               + ", phase " + std::to_string (engine.getPhase()) + ")");
+}
 } // namespace
 
 int main()
@@ -289,6 +316,7 @@ int main()
     testReturnsToLiveSnap();
     testReturnsToLiveSpinUp();
     testNoLatencyAccumulation();
+    testStateGetters();
 
     std::printf ("=========================\n%s\n",
                  failures == 0 ? "ALL TESTS PASSED" : "TESTS FAILED");
