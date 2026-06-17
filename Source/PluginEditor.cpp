@@ -341,8 +341,12 @@ void TapeStopAudioProcessorEditor::drawHub (juce::Graphics& g, juce::Point<float
     g.fillEllipse (full);
     g.setColour (juce::Colour (0xff1c2129));
     const float ringStep = juce::jmax (2.0f, radius * (4.0f / 41.0f));
-    for (float rr = radius - ringStep * 0.5f; rr > radius * 0.12f; rr -= ringStep)
+    for (int k = 0; ; ++k)
     {
+        // Integer counter; radius recomputed each step (no float-accumulation drift).
+        const float rr = radius - ringStep * (0.5f + (float) k);
+        if (rr <= radius * 0.12f)
+            break;
         auto ring = juce::Rectangle<float> (c.x - rr, c.y - rr, rr * 2.0f, rr * 2.0f);
         g.drawEllipse (ring, juce::jmax (1.0f, ringStep * 0.5f));
     }
