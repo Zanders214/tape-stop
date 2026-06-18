@@ -23,12 +23,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Linux
-            os: ubuntu-latest
+          # Windows-only to conserve private-repo Actions minutes (macOS bills at
+          # 10x and Linux at 1x per minute). Cross-platform compile + the DSP unit
+          # tests are still covered on Linux by the SonarQube workflow, which
+          # builds and runs ctest there. Re-add Linux/macOS legs here if the repo
+          # goes public (unlimited free Actions) or the minute budget grows.
           - name: Windows
             os: windows-latest
-          - name: macOS
-            os: macos-latest
 
     steps:
       - name: Checkout
