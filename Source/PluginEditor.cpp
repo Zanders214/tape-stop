@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include <array>
 #include <cmath>
 
 namespace
@@ -24,7 +25,7 @@ namespace
     }
 
     // Rounded only on the top two corners (histogram bars).
-    void fillTopRounded (juce::Graphics& g, juce::Rectangle<float> r, float corner)
+    void fillTopRounded (const juce::Graphics& g, juce::Rectangle<float> r, float corner)
     {
         corner = juce::jlimit (0.0f, juce::jmin (r.getWidth(), r.getHeight()) * 0.5f, corner);
         juce::Path p;
@@ -83,7 +84,8 @@ void StopButton::paintButton (juce::Graphics& g, bool, bool shouldDrawDown)
     auto font = fonts.bold (14.0f * s).withExtraKerningFactor (0.16f);
     const float textW = textWidth (font, label);
 
-    const float dot = 9.0f * s, gap = 9.0f * s;
+    const float dot = 9.0f * s;
+    const float gap = 9.0f * s;
     const float x0  = b.getCentreX() - (dot + gap + textW) * 0.5f;
     const float cy  = b.getCentreY();
 
@@ -228,8 +230,8 @@ TapeStopAudioProcessorEditor::computeLayout (float widthPx) const
         L.tapeWindow = { innerL + S (6.0f), winY, innerW - 2.0f * S (6.0f), S (96.0f) };
 
         L.hubRadius = S (41.0f);
-        L.hubLeft  = { L.tapeWindow.getX()     + S (66.0f), L.tapeWindow.getCentreY() };
-        L.hubRight = { L.tapeWindow.getRight()  - S (66.0f), L.tapeWindow.getCentreY() };
+        L.hub[0] = { L.tapeWindow.getX()     + S (66.0f), L.tapeWindow.getCentreY() };
+        L.hub[1] = { L.tapeWindow.getRight()  - S (66.0f), L.tapeWindow.getCentreY() };
     }
     y += S (188.0f) + S (18.0f);
 
@@ -244,7 +246,8 @@ TapeStopAudioProcessorEditor::computeLayout (float widthPx) const
 
     // Return row: "RETURN" left, segmented toggle right.
     {
-        const float togW = S (132.0f), togH = S (20.0f);
+        const float togW = S (132.0f);
+        const float togH = S (20.0f);
         L.returnToggle = { cx0 + cw - togW, y, togW, togH };
         L.returnLabel  = { cx0, y, cw - togW - S (8.0f), togH };
     }
@@ -314,7 +317,7 @@ void TapeStopAudioProcessorEditor::resized()
 void TapeStopAudioProcessorEditor::drawLabel (juce::Graphics& g, const juce::String& text,
                                               juce::Font font, juce::Colour colour,
                                               juce::Rectangle<float> bounds, juce::Justification just,
-                                              float trackingEm)
+                                              float trackingEm) const
 {
     font = font.withExtraKerningFactor (trackingEm); // 0 == no tracking (no-op)
     g.setFont (font);
@@ -322,7 +325,7 @@ void TapeStopAudioProcessorEditor::drawLabel (juce::Graphics& g, const juce::Str
     g.drawText (text, bounds.toNearestInt(), just, false);
 }
 
-void TapeStopAudioProcessorEditor::drawHeader (juce::Graphics& g, const Layout& L)
+void TapeStopAudioProcessorEditor::drawHeader (juce::Graphics& g, const Layout& L) const
 {
     drawLabel (g, "Tape Stop", fonts.semi (16.0f * L.s), tape::textStrong, L.title, juce::Justification::centredLeft, -0.01f);
 
@@ -332,7 +335,7 @@ void TapeStopAudioProcessorEditor::drawHeader (juce::Graphics& g, const Layout& 
 }
 
 void TapeStopAudioProcessorEditor::drawHub (juce::Graphics& g, juce::Point<float> c, float radius,
-                                            juce::Colour capA, juce::Colour capB, float angleDeg)
+                                            juce::Colour capA, juce::Colour capB, float angleDeg) const
 {
     auto full = juce::Rectangle<float> (c.x - radius, c.y - radius, radius * 2.0f, radius * 2.0f);
 
@@ -389,7 +392,7 @@ void TapeStopAudioProcessorEditor::drawHub (juce::Graphics& g, juce::Point<float
     g.fillEllipse (cap);
 }
 
-void TapeStopAudioProcessorEditor::drawCassette (juce::Graphics& g, const Layout& L, float speed, float phase)
+void TapeStopAudioProcessorEditor::drawCassette (juce::Graphics& g, const Layout& L, float speed, float phase) const
 {
     juce::ignoreUnused (phase);
     const float s = L.s;
@@ -412,13 +415,14 @@ void TapeStopAudioProcessorEditor::drawCassette (juce::Graphics& g, const Layout
 
     // Four corner screws (radial-gradient dots, 6px, 8px inset).
     {
-        const float d = 6.0f * s, in = 8.0f * s;
-        const juce::Point<float> screws[] = {
+        const float d  = 6.0f * s;
+        const float in = 8.0f * s;
+        const std::array<juce::Point<float>, 4> screws = {{
             { L.cassette.getX() + in,                  L.cassette.getY() + in },
             { L.cassette.getRight() - in - d,          L.cassette.getY() + in },
             { L.cassette.getX() + in,                  L.cassette.getBottom() - in - d },
             { L.cassette.getRight() - in - d,          L.cassette.getBottom() - in - d }
-        };
+        }};
         for (auto sp : screws)
         {
             auto r = juce::Rectangle<float> (sp.x, sp.y, d, d);
@@ -460,11 +464,11 @@ void TapeStopAudioProcessorEditor::drawCassette (juce::Graphics& g, const Layout
     g.fillRect (juce::Rectangle<float> (L.tapeWindow.getX(), L.tapeWindow.getCentreY() - s, L.tapeWindow.getWidth(), 2.0f * s));
 
     // Both hubs share the same angle / direction.
-    drawHub (g, L.hubLeft,  L.hubRadius, tape::cyan, tape::violet, (float) hubAngleDeg);
-    drawHub (g, L.hubRight, L.hubRadius, tape::pink, tape::amber,  (float) hubAngleDeg);
+    drawHub (g, L.hub[0], L.hubRadius, tape::cyan, tape::violet, (float) hubAngleDeg);
+    drawHub (g, L.hub[1], L.hubRadius, tape::pink, tape::amber,  (float) hubAngleDeg);
 }
 
-void TapeStopAudioProcessorEditor::drawTapeBar (juce::Graphics& g, const Layout& L, float speed)
+void TapeStopAudioProcessorEditor::drawTapeBar (juce::Graphics& g, const Layout& L, float speed) const
 {
     const float s = L.s;
     drawLabel (g, "TAPE SPEED", fonts.sans (10.0f * s), tape::textDimmer, L.tapeBarLabel, juce::Justification::centredLeft, 0.1f);
@@ -486,7 +490,7 @@ void TapeStopAudioProcessorEditor::drawTapeBar (juce::Graphics& g, const Layout&
     }
 }
 
-void TapeStopAudioProcessorEditor::drawHistogram (juce::Graphics& g, const Layout& L, float curve, float phase)
+void TapeStopAudioProcessorEditor::drawHistogram (juce::Graphics& g, const Layout& L, float curve, float phase) const
 {
     const float s = L.s;
     const int   N = 44;
@@ -517,15 +521,15 @@ void TapeStopAudioProcessorEditor::drawHistogram (juce::Graphics& g, const Layou
     g.fillRect (juce::Rectangle<float> (px - juce::jmax (0.5f, s * 0.5f), top, juce::jmax (1.0f, 2.0f * s), L.histogram.getBottom() - top));
 }
 
-void TapeStopAudioProcessorEditor::drawSliderLabels (juce::Graphics& g, const Layout& L)
+void TapeStopAudioProcessorEditor::drawSliderLabels (juce::Graphics& g, const Layout& L) const
 {
     const float s = L.s;
-    const char* names[3] = { "STOP TIME", "START TIME", "CURVE" };
-    const juce::String values[3] = {
+    const std::array<const char*, 3> names = {{ "STOP TIME", "START TIME", "CURVE" }};
+    const std::array<juce::String, 3> values = {{
         tape::formatMs ((float) stopTimeSlider.getValue()),
         tape::formatMs ((float) startTimeSlider.getValue()),
         juce::String (curveSlider.getValue(), 2)
-    };
+    }};
 
     for (int i = 0; i < 3; ++i)
     {
@@ -545,7 +549,7 @@ void TapeStopAudioProcessorEditor::paint (juce::Graphics& g)
 
     const float speed = juce::jlimit (0.0f, 1.0f, processorRef.getSpeed());
     const float phase = juce::jlimit (0.0f, 1.0f, processorRef.getPhase());
-    const float curve = (float) curveSlider.getValue();
+    const auto  curve = (float) curveSlider.getValue();
 
     drawHeader (g, L);
     drawCassette (g, L, speed, phase);

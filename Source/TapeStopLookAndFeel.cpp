@@ -35,7 +35,7 @@ void TapeStopLookAndFeel::drawLinearSlider (juce::Graphics& g, int x, int y, int
 
     // Position from the slider's own value, so the NormalisableRange skew is honoured
     // and the thumb centre travels edge-to-edge (matching the prototype's translateX(-50%)).
-    const float prop = (float) slider.valueToProportionOfLength (slider.getValue());
+    const auto prop = (float) slider.valueToProportionOfLength (slider.getValue());
     const float fillRight = bounds.getX() + prop * bounds.getWidth();
 
     // Track.

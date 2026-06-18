@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <array>
 #include "PluginProcessor.h"
 #include "TapeStopLookAndFeel.h"
 
@@ -73,32 +74,44 @@ private:
     struct Layout
     {
         float s = 1.0f;
-        juce::Rectangle<float> panel, title, pill, cassette;
-        juce::Rectangle<float> labelStrip, spectrumBar, tapeWindow;
-        juce::Point<float> hubLeft, hubRight;
+        juce::Rectangle<float> panel;
+        juce::Rectangle<float> title;
+        juce::Rectangle<float> pill;
+        juce::Rectangle<float> cassette;
+        juce::Rectangle<float> labelStrip;
+        juce::Rectangle<float> spectrumBar;
+        juce::Rectangle<float> tapeWindow;
+        std::array<juce::Point<float>, 2> hub; // [0] = left reel, [1] = right reel
         float hubRadius = 0.0f;
-        juce::Rectangle<float> tapeBarLabel, tapeBarTrack;
-        juce::Rectangle<float> stopButton, returnLabel, returnToggle;
-        juce::Rectangle<float> curveLabel, histogram, divider;
-        juce::Rectangle<float> sliderLabel[3], sliderTrack[3];
+        juce::Rectangle<float> tapeBarLabel;
+        juce::Rectangle<float> tapeBarTrack;
+        juce::Rectangle<float> stopButton;
+        juce::Rectangle<float> returnLabel;
+        juce::Rectangle<float> returnToggle;
+        juce::Rectangle<float> curveLabel;
+        juce::Rectangle<float> histogram;
+        juce::Rectangle<float> divider;
+        std::array<juce::Rectangle<float>, 3> sliderLabel;
+        std::array<juce::Rectangle<float>, 3> sliderTrack;
     };
 
     Layout computeLayout (float widthPx) const;
 
     void timerCallback() override;
 
-    // Paint helpers (all take the live frame state).
-    void drawHeader     (juce::Graphics&, const Layout&);
-    void drawCassette   (juce::Graphics&, const Layout&, float speed, float phase);
+    // Paint helpers (all take the live frame state). const: they only read
+    // member state (fonts, hub angle, slider values) and draw via the context.
+    void drawHeader     (juce::Graphics&, const Layout&) const;
+    void drawCassette   (juce::Graphics&, const Layout&, float speed, float phase) const;
     void drawHub        (juce::Graphics&, juce::Point<float> centre, float radius,
-                         juce::Colour capA, juce::Colour capB, float angleDeg);
-    void drawTapeBar    (juce::Graphics&, const Layout&, float speed);
-    void drawHistogram  (juce::Graphics&, const Layout&, float curve, float phase);
-    void drawSliderLabels (juce::Graphics&, const Layout&);
+                         juce::Colour capA, juce::Colour capB, float angleDeg) const;
+    void drawTapeBar    (juce::Graphics&, const Layout&, float speed) const;
+    void drawHistogram  (juce::Graphics&, const Layout&, float curve, float phase) const;
+    void drawSliderLabels (juce::Graphics&, const Layout&) const;
 
     // Tracked (letter-spaced) text via JUCE's extra-kerning factor.
     void drawLabel (juce::Graphics&, const juce::String&, juce::Font, juce::Colour,
-                    juce::Rectangle<float>, juce::Justification, float trackingEm = 0.0f);
+                    juce::Rectangle<float>, juce::Justification, float trackingEm = 0.0f) const;
 
     TapeStopAudioProcessor& processorRef;
 
@@ -107,10 +120,15 @@ private:
 
     StopButton   stopButton  { fonts };
     ReturnToggle returnToggle { fonts };
-    juce::Slider stopTimeSlider, startTimeSlider, curveSlider;
+    juce::Slider stopTimeSlider;
+    juce::Slider startTimeSlider;
+    juce::Slider curveSlider;
 
-    std::unique_ptr<APVTS::ButtonAttachment> stopAttachment, returnAttachment;
-    std::unique_ptr<APVTS::SliderAttachment>  stopTimeAttachment, startTimeAttachment, curveAttachment;
+    std::unique_ptr<APVTS::ButtonAttachment> stopAttachment;
+    std::unique_ptr<APVTS::ButtonAttachment> returnAttachment;
+    std::unique_ptr<APVTS::SliderAttachment> stopTimeAttachment;
+    std::unique_ptr<APVTS::SliderAttachment> startTimeAttachment;
+    std::unique_ptr<APVTS::SliderAttachment> curveAttachment;
 
     // Cached panel background gradient (the one full-area fill); rebuilt on resize.
     juce::Image background;

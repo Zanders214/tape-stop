@@ -96,7 +96,10 @@ struct TapeFonts
     juce::Font bold (float height) const { return make (sansBold,    height); } // STOP button
     juce::Font mono (float height) const { return make (monoFace,    height); } // numeric read-outs
 
-    juce::Typeface::Ptr sansRegular, sansSemi, sansBold, monoFace;
+    juce::Typeface::Ptr sansRegular;
+    juce::Typeface::Ptr sansSemi;
+    juce::Typeface::Ptr sansBold;
+    juce::Typeface::Ptr monoFace;
 
 private:
     static juce::Font make (juce::Typeface::Ptr tf, float height)
