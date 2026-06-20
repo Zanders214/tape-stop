@@ -327,7 +327,17 @@ void TapeStopAudioProcessorEditor::drawLabel (juce::Graphics& g, const juce::Str
 
 void TapeStopAudioProcessorEditor::drawHeader (juce::Graphics& g, const Layout& L) const
 {
-    drawLabel (g, "Tape Stop", fonts.semi (16.0f * L.s), tape::textStrong, L.title, juce::Justification::centredLeft, -0.01f);
+    // Brand wordmark: house name "Zanders" in primary text set tight against the
+    // CamelCase product name, which takes the product's spectrum colour (cyan for
+    // TapeStop) — no space between the two runs.
+    const auto  titleFont = fonts.semi (16.0f * L.s);
+    const float tracking  = -0.01f;
+    const float houseW    = textWidth (titleFont.withExtraKerningFactor (tracking), "Zanders");
+
+    drawLabel (g, "Zanders",  titleFont, tape::textStrong, L.title,
+               juce::Justification::centredLeft, tracking);
+    drawLabel (g, "TapeStop", titleFont, tape::cyan, L.title.withTrimmedLeft (houseW),
+               juce::Justification::centredLeft, tracking);
 
     g.setColour (tape::badgeBlue.withAlpha (0.12f));
     g.fillRoundedRectangle (L.pill, L.pill.getHeight() * 0.5f);
