@@ -75,6 +75,41 @@ target_link_libraries(TapeStop
         juce::juce_recommended_warning_flags)
 
 # ---------------------------------------------------------------------------
+# Real-time-safety check (clang RealtimeSanitizer). Opt-in, CI-only: builds a
+# tiny console driver that runs the audio-thread DSP under -fsanitize=realtime,
+# so any malloc / lock / syscall reached on the audio thread fails the build.
+# Needs clang >= 20; see .github/workflows/quality.yml. OFF for normal builds,
+# so MSVC / release / analysis builds are completely unaffected.
+# ---------------------------------------------------------------------------
+option(TAPESTOP_RT_SANITIZE "Build rt_check with clang RealtimeSanitizer (needs clang>=20)" OFF)
+
+if(TAPESTOP_RT_SANITIZE)
+    juce_add_console_app(rt_check PRODUCT_NAME "rt_check")
+    juce_generate_juce_header(rt_check)
+    set_target_properties(rt_check PROPERTIES EXCLUDE_FROM_ALL TRUE)
+    # Same translation units as the plugin (the driver builds the real processor,
+    # whose createEditor() pulls in the editor + its look-and-feel + font data).
+    target_sources(rt_check PRIVATE
+        Tests/rt_check.cpp
+        Source/PluginProcessor.cpp
+        Source/PluginEditor.cpp
+        Source/TapeStopLookAndFeel.cpp)
+    target_include_directories(rt_check PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
+    target_compile_definitions(rt_check PRIVATE
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JucePlugin_Name="Tape Stop"
+        "TAPESTOP_RT_NONBLOCKING=[[clang::nonblocking]]")   # CMake passes brackets fine inside quotes
+    target_compile_options(rt_check PRIVATE -fsanitize=realtime)
+    target_link_options   (rt_check PRIVATE -fsanitize=realtime)
+    target_link_libraries(rt_check PRIVATE
+        TapeStopData                                        # embedded fonts (BinaryData) used by the editor
+        juce::juce_audio_utils
+        juce::juce_dsp
+        juce::juce_recommended_config_flags)
+endif()
+
+# ---------------------------------------------------------------------------
 # Unit tests for the DSP core (TapeStopEngine). Headless and framework-free,
 # so they run on every platform without a display. Run with: ctest --test-dir build
 # ---------------------------------------------------------------------------
