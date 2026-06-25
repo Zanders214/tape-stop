@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782406549535,
+  "lastUpdate": 1782410448343,
   "repoUrl": "https://github.com/Zanders214/tape-stop",
   "entries": {
     "Tape Stop DSP": [
@@ -34,6 +34,45 @@ window.BENCHMARK_DATA = {
             "name": "DSP load @48k/512",
             "value": 0.175,
             "unit": "%"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "152227414+Zanders214@users.noreply.github.com",
+            "name": "Dennis Zanders",
+            "username": "Zanders214"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "87b68cb6ff874a1c4458f963dff6412aae96750e",
+          "message": "Merge pull request #10 from Zanders214/feat/dsp-pow-cache\n\nSkip per-sample std::pow in the DSP steady state",
+          "timestamp": "2026-06-25T20:55:48+03:00",
+          "tree_id": "1e321571df990aed325cee2ece80ddc12db8cb2f",
+          "url": "https://github.com/Zanders214/tape-stop/commit/87b68cb6ff874a1c4458f963dff6412aae96750e"
+        },
+        "date": 1782410447672,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "processBlock",
+            "value": 4040.08,
+            "unit": "ns/block"
+          },
+          {
+            "name": "DSP load @48k/512",
+            "value": 0.038,
+            "unit": "%"
+          },
+          {
+            "name": "processBlock (running)",
+            "value": 4851.244,
+            "unit": "ns/block"
           }
         ]
       }
