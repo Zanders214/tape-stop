@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_audio_basics/juce_audio_basics.h>
+#include "RtSafety.h"
 #include <atomic>
 #include <vector>
 #include <cmath>
@@ -113,8 +114,13 @@ public:
         once per processed block; thread-safe to read from the UI. */
     float getPhase() const noexcept { return phasePublished.load (std::memory_order_relaxed); }
 
-    /** Processes a block in place. One output sample per input sample. */
-    void process (juce::AudioBuffer<float>& buffer) noexcept
+    /** Processes a block in place. One output sample per input sample.
+
+        Runs on the audio thread, so it must never allocate, lock or syscall.
+        TAPESTOP_RT_NONBLOCKING marks it [[clang::nonblocking]] under the RTSan
+        build, which enforces exactly that (no-op everywhere else). All buffers
+        are allocated up front in prepare(). */
+    void process (juce::AudioBuffer<float>& buffer) noexcept TAPESTOP_RT_NONBLOCKING
     {
         const int numCh      = juce::jmin (buffer.getNumChannels(), (int) channels.size());
         const int numSamples = buffer.getNumSamples();

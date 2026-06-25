@@ -1,0 +1,10 @@
+# RealtimeSanitizer suppressions for tape-stop. Keep this list TINY.
+#
+# Each line hides one known, unavoidable third-party call from the gate; anything
+# not listed stays a hard failure. Format:
+#   call-stack-contains:<pattern>
+#   function-name-matches:<pattern>
+#
+# Empty by design: TapeStopEngine::process is self-contained and trips nothing
+# today. Add an entry only for a genuinely unavoidable framework call, with a
+# comment explaining why it can't be fixed instead.
