@@ -84,6 +84,10 @@ public:
         phase      = 0.0;
         speed      = 1.0;
 
+        speedPhase = -1.0;          // force advanceRamp to recompute on first use
+        speedCurve = -1.0f;
+        cachedGain = 1.0f;
+
         speedPublished.store (1.0f, std::memory_order_relaxed);
         phasePublished.store (0.0f, std::memory_order_relaxed);
     }
@@ -140,9 +144,9 @@ public:
 
             // Fade to silence over the last few percent of the ramp so a fully
             // stopped tape lands on clean silence rather than a held DC tone.
-            const float gain = (speed >= kFadeStart)
-                                   ? 1.0f
-                                   : (float) (speed / kFadeStart);
+            // gain is a pure function of speed and is recomputed only when speed
+            // changes (in advanceRamp / on Snap), so steady states cost nothing here.
+            const float gain = cachedGain;
 
             for (int ch = 0; ch < numCh; ++ch)
             {
@@ -172,6 +176,8 @@ public:
                     phase   = 0.0;
                     speed   = 1.0;
                     readInc = 0.0;
+                    speedPhase = -1.0;   // invalidate cache: advanceRamp re-derives speed
+                    cachedGain = 1.0f;   // resumes at unity
                 }
                 else if (gap > 0.0)
                 {
@@ -219,8 +225,17 @@ private:
             phase = juce::jmax (target, phase - inc);
         }
 
-        const double exponent = 1.0 + (double) curve * kCurveExp;
-        speed = std::pow (1.0 - phase, exponent);
+        // speed (and the gain derived from it) is a pure function of (phase, curve).
+        // Recompute the transcendental only when one of those actually changed —
+        // steady running (phase=0) and steady stopped (phase=1) then skip it entirely.
+        if (phase != speedPhase || curve != speedCurve)
+        {
+            const double exponent = 1.0 + (double) curve * kCurveExp;
+            speed = std::pow (1.0 - phase, exponent);
+            speedPhase = phase;
+            speedCurve = curve;
+            cachedGain = (speed >= kFadeStart) ? 1.0f : (float) (speed / kFadeStart);
+        }
     }
 
     static constexpr double kCurveExp     = 4.0;     // curve=1 -> exponent 5
@@ -239,6 +254,13 @@ private:
     double    readPos     = 0.0;  // fractional, shared across channels
     double    phase       = 0.0;  // 0 = running, 1 = fully stopped
     double    speed       = 1.0;  // playback rate (read increment per sample)
+
+    // Cache for the speed/gain curve: recompute std::pow only when (phase, curve)
+    // change, so steady running/stopped states pay nothing per sample. Updated
+    // wherever speed is written (advanceRamp, the Snap branch, reset).
+    double    speedPhase  = -1.0; // phase `speed` was last computed for (-1 = force)
+    float     speedCurve  = -1.0f;// curve `speed` was last computed for
+    float     cachedGain  = 1.0f; // gain = f(speed)
 
     bool       engaged    = false;
     ReturnMode returnMode = ReturnMode::Snap;
