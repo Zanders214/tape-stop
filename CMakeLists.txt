@@ -105,3 +105,43 @@ if(TAPESTOP_BUILD_TESTS)
 
     add_test(NAME TapeStopEngine COMMAND TapeStopTests)
 endif()
+
+# ---------------------------------------------------------------------------
+# Performance micro-benchmark (nanobench). Opt-in, CI-only: builds a console app
+# that times the real processBlock and writes a github-action-benchmark JSON for
+# the trend dashboard (.github/workflows/perf.yml). Fetches nanobench, used
+# header-only. OFF for normal builds.
+# ---------------------------------------------------------------------------
+option(TAPESTOP_BUILD_BENCH "Build the perf_bench micro-benchmark (fetches nanobench)" OFF)
+
+if(TAPESTOP_BUILD_BENCH)
+    include(FetchContent)
+    FetchContent_Declare(nanobench
+        GIT_REPOSITORY https://github.com/martinus/nanobench.git
+        GIT_TAG        v4.3.11
+        GIT_SHALLOW    TRUE)
+    FetchContent_MakeAvailable(nanobench)
+
+    juce_add_console_app(perf_bench PRODUCT_NAME "perf_bench")
+    juce_generate_juce_header(perf_bench)
+    set_target_properties(perf_bench PROPERTIES EXCLUDE_FROM_ALL TRUE)
+    # Same translation units as the plugin (the bench builds the real processor,
+    # whose createEditor() pulls in the editor + its look-and-feel + font data).
+    target_sources(perf_bench PRIVATE
+        Tests/perf_bench.cpp
+        Source/PluginProcessor.cpp
+        Source/PluginEditor.cpp
+        Source/TapeStopLookAndFeel.cpp)
+    target_include_directories(perf_bench PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/Source
+        ${nanobench_SOURCE_DIR}/src/include)   # header-only: we define ANKERL_NANOBENCH_IMPLEMENT ourselves
+    target_compile_definitions(perf_bench PRIVATE
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JucePlugin_Name="Tape Stop")
+    target_link_libraries(perf_bench PRIVATE
+        TapeStopData                               # embedded fonts (BinaryData) used by the editor
+        juce::juce_audio_utils
+        juce::juce_dsp
+        juce::juce_recommended_config_flags)
+endif()
