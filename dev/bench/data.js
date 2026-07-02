@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782998831409,
+  "lastUpdate": 1782999246093,
   "repoUrl": "https://github.com/Zanders214/tape-stop",
   "entries": {
     "Tape Stop DSP": [
@@ -150,6 +150,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "processBlock (running)",
             "value": 5007.679,
+            "unit": "ns/block"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "152227414+Zanders214@users.noreply.github.com",
+            "name": "Dennis Zanders",
+            "username": "Zanders214"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c0fe0ecc8eb14374b20bcc08e8f25207af5f857b",
+          "message": "Merge pull request #11 from Zanders214/feat/macos-installer\n\nAdd macOS .pkg installer build script",
+          "timestamp": "2026-07-02T15:24:02+02:00",
+          "tree_id": "593ee778790de5894e277adc15568719c06e1d1b",
+          "url": "https://github.com/Zanders214/tape-stop/commit/c0fe0ecc8eb14374b20bcc08e8f25207af5f857b"
+        },
+        "date": 1782999245833,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "processBlock",
+            "value": 4035.263,
+            "unit": "ns/block"
+          },
+          {
+            "name": "DSP load @48k/512",
+            "value": 0.038,
+            "unit": "%"
+          },
+          {
+            "name": "processBlock (running)",
+            "value": 4860.21,
             "unit": "ns/block"
           }
         ]
