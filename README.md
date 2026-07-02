@@ -71,6 +71,32 @@ cmake -B build -DJUCE_PATH=/path/to/JUCE -DCMAKE_BUILD_TYPE=Release
 cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
 ```
 
+### macOS installer (.pkg)
+
+After a Release build, package the plug-ins into a double-clickable installer
+that drops each format in its standard system folder automatically — VST3 into
+`/Library/Audio/Plug-Ins/VST3`, the Audio Unit into
+`/Library/Audio/Plug-Ins/Components`, and the Standalone app into
+`/Applications`:
+
+```sh
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+cmake --build build --config Release
+packaging/build_installer.sh
+```
+
+The installer lands at `build/installer/TapeStop-macOS-v<version>-Installer.pkg`.
+It offers a **Customize** screen so users can deselect formats, and the version
+is read from `CMakeLists.txt`. To sign it for distribution, set a Developer ID:
+
+```sh
+SIGN_IDENTITY="Developer ID Installer: Your Name (TEAMID)" packaging/build_installer.sh
+```
+
+Without a signing identity the `.pkg` is unsigned, so Gatekeeper warns on first
+open (right-click → **Open**, or allow under **System Settings → Privacy &
+Security**).
+
 ### Linux build dependencies
 
 ```sh
