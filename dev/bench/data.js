@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782999246093,
+  "lastUpdate": 1782999418803,
   "repoUrl": "https://github.com/Zanders214/tape-stop",
   "entries": {
     "Tape Stop DSP": [
@@ -189,6 +189,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "processBlock (running)",
             "value": 4860.21,
+            "unit": "ns/block"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "152227414+Zanders214@users.noreply.github.com",
+            "name": "Dennis Zanders",
+            "username": "Zanders214"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3f7d126816c007bac7d097e436b0e9bc75dbcfd2",
+          "message": "Merge pull request #12 from Zanders214/docs/ci-readme-accuracy\n\ndocs: correct stale CI description (build is Windows-only)",
+          "timestamp": "2026-07-02T15:33:44+02:00",
+          "tree_id": "9247091314679f32d3d7ad2f03cb42350cdcf3dc",
+          "url": "https://github.com/Zanders214/tape-stop/commit/3f7d126816c007bac7d097e436b0e9bc75dbcfd2"
+        },
+        "date": 1782999417982,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "processBlock",
+            "value": 4062.132,
+            "unit": "ns/block"
+          },
+          {
+            "name": "DSP load @48k/512",
+            "value": 0.038,
+            "unit": "%"
+          },
+          {
+            "name": "processBlock (running)",
+            "value": 4861.008,
             "unit": "ns/block"
           }
         ]
