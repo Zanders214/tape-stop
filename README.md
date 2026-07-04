@@ -15,7 +15,7 @@ electronic and hip-hop production, and works in Ableton Live or any VST3/AU host
 | **Stop Time**  | How long the spin-**down** takes (1–5000 ms).                     |
 | **Start Time** | How long the spin-**up** takes (1–5000 ms).                      |
 | **Curve**    | Slowdown shape: `0` = linear, `1` = heavy exponential (fast drop, long linger). |
-| **Return**   | How the tape rejoins the live signal on release: **Snap** (instant, click-free rejoin from silence) or **Spin Up** (turntable-style catch-up through the buffered audio). |
+| **Return**   | How the tape rejoins the live signal on release: **Snap** (instant, click-free rejoin from silence) or **Spin Up** (turntable-style acceleration through the buffered audio, then a short crossfade back to the live signal). |
 
 ## User interface
 
