@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782999418803,
+  "lastUpdate": 1783124724890,
   "repoUrl": "https://github.com/Zanders214/tape-stop",
   "entries": {
     "Tape Stop DSP": [
@@ -228,6 +228,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "processBlock (running)",
             "value": 4861.008,
+            "unit": "ns/block"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "152227414+Zanders214@users.noreply.github.com",
+            "name": "Dennis Zanders",
+            "username": "Zanders214"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a231d8affe3cfed3dacb2bc98420c6d51247b038",
+          "message": "Merge pull request #13 from Zanders214/fix/resume-pitch-squeal\n\nFix high-pitched squeal when resuming quickly from a tape stop",
+          "timestamp": "2026-07-04T02:22:10+02:00",
+          "tree_id": "41ab0c92978e2418f74b29c3b40561c64cd19ad8",
+          "url": "https://github.com/Zanders214/tape-stop/commit/a231d8affe3cfed3dacb2bc98420c6d51247b038"
+        },
+        "date": 1783124724663,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "processBlock",
+            "value": 4685.081,
+            "unit": "ns/block"
+          },
+          {
+            "name": "DSP load @48k/512",
+            "value": 0.044,
+            "unit": "%"
+          },
+          {
+            "name": "processBlock (running)",
+            "value": 5229.779,
             "unit": "ns/block"
           }
         ]
