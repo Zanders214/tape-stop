@@ -15,7 +15,7 @@ electronic and hip-hop production, and works in Ableton Live or any VST3/AU host
 | **Stop Time**  | How long the spin-**down** takes (1–5000 ms).                     |
 | **Start Time** | How long the spin-**up** takes (1–5000 ms).                      |
 | **Curve**    | Slowdown shape: `0` = linear, `1` = heavy exponential (fast drop, long linger). |
-| **Return**   | How the tape rejoins the live signal on release: **Snap** (instant, click-free rejoin from silence) or **Spin Up** (turntable-style catch-up through the buffered audio). |
+| **Return**   | How the tape rejoins the live signal on release: **Snap** (instant, click-free rejoin from silence) or **Spin Up** (turntable-style acceleration through the buffered audio, then a short crossfade back to the live signal). |
 
 ## User interface
 
@@ -117,9 +117,15 @@ packages are not needed.)
 
 ## CI
 
-`.github/workflows/build.yml` builds Windows VST3, macOS VST3 + AU, and Linux
-VST3 on every push, validates each with **pluginval**, and uploads the binaries
-as downloadable artifacts — so you can grab a macOS build without owning a Mac.
+`.github/workflows/build.yml` builds the **Windows** VST3 on pushes to `dev` /
+`main` and on pull requests, runs the DSP unit tests (`ctest`), validates the
+plugin with **pluginval**, and uploads the binary as a downloadable artifact.
+The matrix is Windows-only to conserve private-repo Actions minutes (macOS bills
+at 10× per minute, Linux at 1×); cross-platform compilation and the DSP tests on
+Linux are still covered by the SonarQube workflow below. macOS builds are
+produced locally — see [Building](#building), which also packages the `.pkg`
+installer attached to releases. Re-add the Linux/macOS legs to the matrix if the
+repo goes public (unlimited free Actions).
 
 `.github/workflows/sonarqube.yml` runs **SonarQube Cloud** static analysis over
 the C++ in `Source/` and `Tests/` on pushes to `dev` and on pull requests. C/C++

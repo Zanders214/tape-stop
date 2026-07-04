@@ -35,10 +35,15 @@
 
         Snap   -> rejoin the live signal instantly (jump to the write head while
                   output is silent, i.e. fully stopped; click-free). If released
-                  mid-fade while still audible, falls back to a quick catch-up.
-        SpinUp -> turntable style: the reader runs faster than the writer
-                  (capped at kCatchUpRate) until it reaches the write head, so you
-                  hear the tape accelerate through the buffered audio and lock in.
+                  mid-fade while still audible, a short crossfade to the live
+                  signal takes over instead.
+        SpinUp -> turntable style: the reader accelerates through the buffered
+                  audio at the ramped speed, and once back at full speed a short
+                  crossfade rejoins the live edge.
+
+    In both modes the reader never runs faster than unity: over-speed reading
+    would replay the buffered audio pitched UP (chipmunk / squeal), which is
+    exactly the artifact the crossfade resync exists to avoid.
 */
 class TapeStopEngine
 {
@@ -70,6 +75,8 @@ public:
         channels.assign ((size_t) juce::jmax (1, numChannels),
                          std::vector<float> ((size_t) bufferSize, 0.0f));
 
+        resyncInc = 1000.0 / (kResyncFadeMs * sr);
+
         reset();
     }
 
@@ -87,6 +94,9 @@ public:
         speedPhase = -1.0;          // force advanceRamp to recompute on first use
         speedCurve = -1.0f;
         cachedGain = 1.0f;
+
+        resyncActive = false;
+        resyncX      = 0.0;
 
         speedPublished.store (1.0f, std::memory_order_relaxed);
         phasePublished.store (0.0f, std::memory_order_relaxed);
@@ -152,7 +162,18 @@ public:
             {
                 const auto& buf = channels[(size_t) ch];
                 const float v   = buf[(size_t) a0] + frac * (buf[(size_t) a1] - buf[(size_t) a0]);
-                buffer.setSample (ch, s, v * gain);
+                float out       = v * gain;
+
+                // While resyncing, blend towards the live input (the sample just
+                // written at w). The reader keeps advancing at <= unity speed
+                // underneath, so nothing is ever replayed pitched up.
+                if (resyncActive)
+                {
+                    const float x = (float) resyncX;
+                    out = out + x * (buf[(size_t) w] - out);
+                }
+
+                buffer.setSample (ch, s, out);
             }
 
             // 3) Advance writer (by 1) and reader. While Stop is released the
@@ -163,7 +184,7 @@ public:
 
             double readInc = speed;   // curve/ramp-driven base rate, in [0, 1]
 
-            if (! engaged)
+            if (! engaged && ! resyncActive)
             {
                 const double gap = (double) writeIndex - readPos; // samples behind live
 
@@ -179,11 +200,43 @@ public:
                     speedPhase = -1.0;   // invalidate cache: advanceRamp re-derives speed
                     cachedGain = 1.0f;   // resumes at unity
                 }
-                else if (gap > 0.0)
+                else if (gap > 1.0
+                         && (returnMode == ReturnMode::Snap || phase <= 0.0))
                 {
-                    // SpinUp (always) or Snap-released-while-audible: run faster
-                    // than the writer, capped, and never overshoot the live edge.
-                    readInc = juce::jmin (gap, juce::jmax (readInc, kCatchUpRate));
+                    // Snap-released-while-audible, or SpinUp back at full speed
+                    // with lag left over: crossfade to the live edge. Reading
+                    // faster than the writer to catch up would replay the buffer
+                    // pitched up (the "squeal on quick resume" bug), so the gap
+                    // is closed by the fade instead of by over-speed reading.
+                    resyncActive = true;
+                    resyncX      = 0.0;
+                }
+            }
+
+            if (resyncActive)
+            {
+                // Re-engaging mid-fade (rapid automation) rewinds the fade back
+                // onto the tape reader, so a stop can interrupt a resume without
+                // any discontinuity.
+                resyncX += engaged ? -resyncInc : resyncInc;
+
+                if (resyncX >= 1.0)
+                {
+                    // Fully on the live signal: lock the reader to the write head
+                    // and resume transparent passthrough.
+                    resyncActive = false;
+                    resyncX      = 0.0;
+                    readPos      = (double) writeIndex;
+                    readInc      = 0.0;
+                    phase        = 0.0;
+                    speed        = 1.0;
+                    speedPhase   = -1.0;
+                    cachedGain   = 1.0f;
+                }
+                else if (resyncX <= 0.0)
+                {
+                    resyncActive = false;
+                    resyncX      = 0.0;
                 }
             }
 
@@ -240,7 +293,7 @@ private:
 
     static constexpr double kCurveExp     = 4.0;     // curve=1 -> exponent 5
     static constexpr double kFadeStart    = 0.05;    // fade to silence below 5% speed
-    static constexpr double kCatchUpRate  = 2.0;     // max read rate while returning to live
+    static constexpr double kResyncFadeMs = 30.0;    // crossfade length when rejoining live
     static constexpr float  kSnapSilenceGain = 1.0e-3f; // "silent enough" to jump in Snap mode
 
     double    sr         = 44100.0;
@@ -261,6 +314,12 @@ private:
     double    speedPhase  = -1.0; // phase `speed` was last computed for (-1 = force)
     float     speedCurve  = -1.0f;// curve `speed` was last computed for
     float     cachedGain  = 1.0f; // gain = f(speed)
+
+    // Resync crossfade: blends the (lagging) tape reader into the live input on
+    // release, then locks the reader to the write head. 0 = all tape, 1 = all live.
+    bool      resyncActive = false;
+    double    resyncX      = 0.0;
+    double    resyncInc    = 1000.0 / (kResyncFadeMs * 44100.0); // per-sample step
 
     bool       engaged    = false;
     ReturnMode returnMode = ReturnMode::Snap;

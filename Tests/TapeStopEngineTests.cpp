@@ -246,7 +246,7 @@ void testReturnsToLiveSpinUp()
 
     engine.setStopEngaged (false); runTone (engine, sr, 0.1); // running
     engine.setStopEngaged (true);  runTone (engine, sr, 1.0); // wind down + hold 1 s
-    engine.setStopEngaged (false); runTone (engine, sr, 3.0); // released -> catch up (capped)
+    engine.setStopEngaged (false); runTone (engine, sr, 3.0); // released -> spin up + resync
 
     const int delay = measureImpulseDelay (engine, (int) (sr * 3.0));
     check (delay >= 0 && delay <= 8,
@@ -277,7 +277,66 @@ void testNoLatencyAccumulation()
            "delay stays ~0 across 5 cycles (worst " + std::to_string (worst) + ")");
 }
 
-// ---- Test 8: the UI-facing getSpeed()/getPhase() track the ramp. -----------
+// ---- Test 8: resuming never pitches the audio up. ---------------------------
+// Regression for the "high-pitched squeal on quick resume" bug: the engine used
+// to close the read/write gap by reading the ring buffer at up to 2x, which
+// replayed the buffered audio an octave up. The output pitch must never exceed
+// the input pitch, in either return mode.
+void testNoPitchUpOnResume()
+{
+    std::printf ("No pitch-up on resume:\n");
+    constexpr double sr   = 48000.0;
+    constexpr double freq = 1000.0;
+
+    auto runCase = [&] (TapeStopEngine::ReturnMode mode, double engagedSeconds,
+                        const std::string& what)
+    {
+        TapeStopEngine engine;
+        engine.prepare (sr, 1, 5.0);
+        engine.setTimes (200.0f, 200.0f);
+        engine.setCurve (0.5f);
+        engine.setReturnMode (mode);
+
+        // One phase-continuous sine, processed in three slices so the engine
+        // sees running -> stopping -> released without any input discontinuity.
+        const int nRun    = (int) (sr * 0.2);
+        const int nStop   = (int) (sr * engagedSeconds);
+        const int nResume = (int) (sr * 1.0);
+        auto full = makeSine (sr, freq, nRun + nStop + nResume);
+        float* d  = full.getWritePointer (0);
+
+        auto processSlice = [&] (int start, int len)
+        {
+            float* ptr = d + start;
+            juce::AudioBuffer<float> slice (&ptr, 1, len);
+            engine.process (slice);
+        };
+
+        engine.setStopEngaged (false); processSlice (0, nRun);
+        engine.setStopEngaged (true);  processSlice (nRun, nStop);
+        engine.setStopEngaged (false); processSlice (nRun + nStop, nResume);
+
+        // In every short window after release the zero-crossing rate (a pitch
+        // proxy) must not exceed the input's. Over-speed catch-up reads at ~2x
+        // -> ~2x the crossings.
+        const int win = (int) (sr * 0.02); // 20 ms
+        const int unityCrossings = (int) (2.0 * freq * win / sr);
+        int worst = 0;
+        for (int start = nRun + nStop; start + win <= nRun + nStop + nResume; start += win / 2)
+            worst = juce::jmax (worst, countZeroCrossings (d, start, win));
+
+        check (worst <= unityCrossings + 4,
+               what + ": max crossings per 20 ms window " + std::to_string (worst)
+                   + " never exceeds unity " + std::to_string (unityCrossings));
+    };
+
+    // Spin Up released from a full stop (the reported repro), and Snap released
+    // mid-fade while still audible (the fallback path that used to catch up at 2x).
+    runCase (TapeStopEngine::ReturnMode::SpinUp, 1.0,  "SpinUp after full stop");
+    runCase (TapeStopEngine::ReturnMode::Snap,   0.06, "Snap released while audible");
+}
+
+// ---- Test 9: the UI-facing getSpeed()/getPhase() track the ramp. -----------
 // The editor polls these on its timer; they must read back the live state
 // (~1/0 while running, ~0/1 once fully stopped) after a processed block.
 void testStateGetters()
@@ -316,6 +375,7 @@ int main()
     testReturnsToLiveSnap();
     testReturnsToLiveSpinUp();
     testNoLatencyAccumulation();
+    testNoPitchUpOnResume();
     testStateGetters();
 
     std::printf ("=========================\n%s\n",
