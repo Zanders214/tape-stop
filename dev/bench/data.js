@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783124724890,
+  "lastUpdate": 1783125137665,
   "repoUrl": "https://github.com/Zanders214/tape-stop",
   "entries": {
     "Tape Stop DSP": [
@@ -267,6 +267,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "processBlock (running)",
             "value": 5229.779,
+            "unit": "ns/block"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "152227414+Zanders214@users.noreply.github.com",
+            "name": "Dennis Zanders",
+            "username": "Zanders214"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "939a93d6853219b2c62120e4ddac7b99c8a93a56",
+          "message": "Merge pull request #14 from Zanders214/dev\n\ntomain",
+          "timestamp": "2026-07-04T02:29:06+02:00",
+          "tree_id": "41ab0c92978e2418f74b29c3b40561c64cd19ad8",
+          "url": "https://github.com/Zanders214/tape-stop/commit/939a93d6853219b2c62120e4ddac7b99c8a93a56"
+        },
+        "date": 1783125136886,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "processBlock",
+            "value": 4697.394,
+            "unit": "ns/block"
+          },
+          {
+            "name": "DSP load @48k/512",
+            "value": 0.044,
+            "unit": "%"
+          },
+          {
+            "name": "processBlock (running)",
+            "value": 5228.14,
             "unit": "ns/block"
           }
         ]
